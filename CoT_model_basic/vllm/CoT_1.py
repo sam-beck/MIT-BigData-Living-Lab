@@ -87,12 +87,3 @@ def run_simple_eval_with_multi_sampling(dataset, n_gen=16, m=5, temperature=0.7,
                 "mean for percentage results": round(mean_percentage,1),
                 "mad for percentage results": round(mad_percentage,1),
         }
-        
-prompts = [
-        "hello my name is",
-        "the president of the United States is"
-]
-
-test_outputs = model.llm.generate(prompts,SamplingParams(temperature=0))
-for output in test_outputs:
-        print(f"Prompt: {output.prompt!r}, Generated text: {output.outputs[0].text!r}")

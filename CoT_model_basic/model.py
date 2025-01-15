@@ -1,5 +1,5 @@
 # Creates the LLM to be trained, along with querying its dataset
-import os, datasets
+import os
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 
@@ -75,14 +75,11 @@ class LanguageModel:
 # Enables transfer from hugging face
 os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
 
-# Size of the dataset
-dataSize = 10
-dataset = datasets.load_dataset("openai/gsm8k","main",split=f"train[0:{dataSize}]",trust_remote_code=True)
-trainingDataSet = datasets.load_dataset("openai/gsm8k","main",split=f"train[-{dataSize}:]",trust_remote_code=True)
-
 # Load model and tokenizer
 model_name = "gpt2"  # Replace with the desired model
 llm = LanguageModel(model_name=model_name)
+
+#TODO delete below, for test purposes only
 
 params = SamplingParameters( max_length=64,
         num_return_sequences=5,
