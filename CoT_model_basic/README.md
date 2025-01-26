@@ -21,7 +21,7 @@ Upon convening with Tobin South, we came to the conclusion that a LLM that is tr
 ![Notes on CoT practicality](./images/CoT%20practicality.png "Practicality of a LLM that has CoT capabilities")
 
 ## Outcome
-After all of the research, a basic implementation of a LLM in python was created. I decided to program a [localised program that can be run on any computer](./local/) to test the implementation as well as a [virtual machine variant using the vllm library](./vllm/) for suitable use on a server side GPU. Both programs were heavily influenced by [a LLM CoT implementation video by Trelis Research](https://www.youtube.com/watch?v=MvaUcc0mNOU), which also details the use of verifiers in creating such a model.
+After all of the research, a basic implementation of a LLM in python was created. I decided to program a [localised program that can be run on any computer](./local/) to test the implementation as well as a [virtual machine variant using the vllm library](./vllm/) for suitable use on a server side GPU. Both programs were heavily influenced by [a LLM CoT implementation video by Trelis Research](https://www.youtube.com/watch?v=MvaUcc0mNOU), which also details the use of verifiers in training a CoT model. This was implemented expect for the training process, as this is rudimentary.
 
 ### Next steps
 To find a base model with chain of thought architecture or capabilites that is able to be used open source such that I can create an inference endpoint and utilise the model in other programs or implementations through addtional training. This stage of development was initiated in [CoT_base_models](https://github.com/sam-beck/MIT-BigData-Living-Lab/tree/main/CoT_base_models).
