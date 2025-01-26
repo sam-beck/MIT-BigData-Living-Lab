@@ -10,13 +10,18 @@
         }
         body {
             font-family: Arial, sans-serif;
+            overflow: hidden;
             margin: 0;
-            padding: 0;
+            padding: 10px;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: start;
             min-height: 100vh;
             background-color: #f0f0f0;
+        }
+        .title{
+            margin-top: 0px;
+            margin-bottom: 5px;
         }
         .container {
             background: #ffffff;
@@ -24,10 +29,10 @@
             padding-right: 40px;
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            width: 80%;
+            width: 90%;
         }
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
         .form-group label {
             display: block;
@@ -63,7 +68,7 @@
         .form-group button:hover {
             filter: brightness(85%);
         }
-        .response {
+        .output {
             margin-top: 20px;
             padding: 15px;
             background: #f9f9f9;
@@ -75,7 +80,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>LLM Inference Interface</h1>
+        <h1 class="title">LLM Inference Interface</h1>
         <form id="inferenceForm">
             <div class="form-group">
                 <select id="model-select" name="model-select"></select>
@@ -87,14 +92,14 @@
                 <button type="button" id="submitButton">Submit</button>
             </div>
         </form>
-        <div id="responseContainer" class="response" style="display: none;"></div>
+        <div id="outputContainer" class="output" style="display: none;"></div>
     </div>
 
     <script>
             // Initial communication with server
             const loadData = async function () {
                 try {
-                    const response = await fetch('http://127.0.0.1:5000/data', {
+                    const output = await fetch('http://127.0.0.1:5000/data', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -103,11 +108,11 @@
                         body: null
                     });
 
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                    if (!output.ok) {
+                        throw new Error(`HTTP error! status: ${output.status}`);
                     }
                     // Get result, contains models available to chat
-                    const result = await response.json();
+                    const result = await output.json();
                     for(let i = 0; i < result.length; i++){
                         document.getElementById('model-select').add(new Option(result[i],result[i]));
                     }
@@ -131,7 +136,7 @@
             const data = { model, inputs };
 
             try {
-                const response = await fetch('http://127.0.0.1:5000/infer', {
+                const output = await fetch('http://127.0.0.1:5000/infer', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -140,17 +145,18 @@
                     body: JSON.stringify(data)
                 });
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                if (!output.ok) {
+                    throw new Error(`HTTP error! status: ${output.status}`);
                 }
 
                 // Output result in friendly format - just generated text of primary output
-                const result = await response.json();
+                const result = await output.json();
                 // Actual output for reference
                 console.log(result)
-                const responseContainer = document.getElementById('responseContainer');
-                responseContainer.style.display = 'block';
-                responseContainer.innerHTML = "Input:".bold()+"\n" + data.inputs + "\n \n" + (result.model + " output:").bold() + "\n" + result.result[0].generated_text;
+                const outputContainer = document.getElementById('outputContainer');
+                outputContainer.style.display = 'block';
+                outputContainer.innerHTML = "Input:".bold()+"\n" + data.inputs + "\n \n" + (result.model + " output:").bold() + "\n" + result.result[0].generated_text;
+                
             } catch (error) {
                 console.error(`Error: ${error.message}`);
             }
