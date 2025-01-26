@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Inference Interface</title>
+    <style>
+        :root {
+            --highlight_color: #1e90ff;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background: #ffffff;
+            padding: 20px;
+            padding-right: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 80%;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 40%;
+            padding: 10px;
+            font-size: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            outline: none;
+        }
+        .form-group textarea{
+            width:  100%;
+            resize: vertical;
+        }
+        .form-group button {
+            width: 40%;
+            padding: 10px;
+            font-size: 1rem;
+            background-color: var(--highlight_color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: filter 0.3s;
+            display:block;
+            margin-left: 30%;
+            margin-right: 30%;
+        }
+        .form-group button:hover {
+            filter: brightness(85%);
+        }
+        .response {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid var(--highlight_color);
+            border-radius: 5px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>LLM Inference Interface</h1>
+        <form id="inferenceForm">
+            <div class="form-group">
+                <select id="model-select" name="model-select"></select>
+            </div>
+            <div class="form-group">
+                <textarea id="prompt" name="prompt" rows="10" placeholder="Input prompt here..."></textarea>
+            </div>
+            <div class="form-group">
+                <button type="button" id="submitButton">Submit</button>
+            </div>
+        </form>
+        <div id="responseContainer" class="response" style="display: none;"></div>
+    </div>
+
+    <script>
+            // Initial communication with server
+            const loadData = async function () {
+                try {
+                    const response = await fetch('http://127.0.0.1:5000/data', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        // TODO: add key here for access to other models or features etc...
+                        body: null
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    // Get result, contains models available to chat
+                    const result = await response.json();
+                    for(let i = 0; i < result.length; i++){
+                        document.getElementById('model-select').add(new Option(result[i],result[i]));
+                    }
+                } catch (error) {
+                    console.error(`Error: ${error.message}`);
+                }
+            }
+            // Call method
+            loadData();
+        
+        // Inference submission
+        document.getElementById('submitButton').addEventListener('click', async () => {
+            const model = document.getElementById('model-select').value;
+            const inputs = document.getElementById('prompt').value;
+
+            if (!inputs.trim()) {
+                alert('Please enter a prompt!');
+                return;
+            }
+
+            const data = { model, inputs };
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/infer', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    // jsonifies the prompt to then be sent to server
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // Output result in friendly format - just generated text of primary output
+                const result = await response.json();
+                // Actual output for reference
+                console.log(result)
+                const responseContainer = document.getElementById('responseContainer');
+                responseContainer.style.display = 'block';
+                responseContainer.innerHTML = "Input:".bold()+"\n" + data.inputs + "\n \n" + (result.model + " output:").bold() + "\n" + result.result[0].generated_text;
+            } catch (error) {
+                console.error(`Error: ${error.message}`);
+            }
+        });
+    </script>
+</body>
+</html>
