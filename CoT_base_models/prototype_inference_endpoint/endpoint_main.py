@@ -1,20 +1,26 @@
 from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
+import torch, torchvision
+import transformers, accelerate
 from transformers import pipeline
 
+torch.cuda.empty_cache()
+torch.cuda.reset_max_memory_allocated()
+transformers.logging.set_verbosity_debug()
+
 app = Flask(__name__)
+CORS(app)
 
 # Load all models
 models = {
-    "gpt2": pipeline("text-generation", model="gpt2"),
-    #"bert-qa": pipeline("question-answering", model="deepset/bert-base-cased-squad2"),
-    #"t5-summarization": pipeline("summarization", model="t5-small"),
+    #"gpt2": pipeline("text-generation", model="gpt2"),
+    "DS-R1-Qwen-1.5B": pipeline("text-generation",model="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",device_map="auto",torch_dtype="auto",max_new_tokens=50)
 }
 
 # Load inference endpoint HTML for webpage
 @app.route("/")
 def init():
-    # Load index.html for webpage endpoint
-    return render_template('index.html')
+    return render_template('index.html')    
 
 # Gets available models and necessary data from server
 @app.route("/data", methods=["POST"])
