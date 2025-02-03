@@ -1,43 +1,63 @@
 from PyQt5.QtWidgets import QApplication, QGraphicsScene, QGraphicsView, QGraphicsRectItem, QGraphicsTextItem, QGraphicsLineItem
-from PyQt5.QtGui import QPen, QPainter
+from PyQt5.QtGui import QPen, QPainter, QFontMetrics, QFont
 from PyQt5.QtCore import Qt
 import sys
 
-class FlowchartView(QGraphicsView):
-    """ A QGraphicsView to display a flowchart or tree diagram """
+class vector2D:
+    def __init__(self,x,y):
+        self.x = x
+        self.y = y
 
+class FlowchartView(QGraphicsView):
     def __init__(self):
         super().__init__()
+
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
         self.setRenderHint(QPainter.Antialiasing)  # Enable smooth rendering
 
-        self.setSceneRect(0, 0, 800, 600)  # Set canvas size
-        self.setDragMode(QGraphicsView.ScrollHandDrag)  # Enable panning
-        self.scale(1.2, 1.2)  # Initial zoom
+        self.setSceneRect(0,0,600,400)  # Set canvas size
+        self.showMaximized()
+        self.windowWidth = self.size().width()
+        self.windowHeight = self.size().height()
 
+        self.setDragMode(QGraphicsView.ScrollHandDrag)  # Enable panning
+        
         self.nodes = []  # Store nodes for correct ordering
         self.lines = []  # Store lines
 
-    def add_node(self, x, y, text):
-        """ Add a node (rectangle with text) at (x, y) """
-        rect = QGraphicsRectItem(x, y, 100, 50)
-        rect.setBrush(Qt.white)  # Fill color
+    def convertToScreenSpace(self, x, y):
+        self.windowWidth = self.size().width()
+        self.windowHeight = self.size().height()
+        return vector2D((x + 1) * self.windowWidth/2, (y + 1) * self.windowHeight/2)
+
+    def addNode(self, pos, text, width=120, padding=10, fontSize=9):
+        font = QFont("Arial", fontSize)
+
+        # Create a QGraphicsTextItem and set its width for proper wrapping
+        label = QGraphicsTextItem(text)
+        label.setFont(font)
+        label.setTextWidth(width - 2 * padding)  # Ensure wrapping
+        label.setDefaultTextColor(Qt.black)
+
+        # Use boundingRect() to get the real wrapped text height
+        text_rect = label.boundingRect()
+        height = text_rect.height() + 2 * padding
+
+        # Create rectangle that perfectly fits the text
+        rect = QGraphicsRectItem(pos.x-width/2, pos.y-height/2, width, height)
+        rect.setBrush(Qt.white)
         rect.setPen(QPen(Qt.black, 2))
         rect.setZValue(1)  # Ensure rectangles are above lines
         self.scene.addItem(rect)
 
-        label = QGraphicsTextItem(text, parent=rect)
-        label.setDefaultTextColor(Qt.black)
-        label.setPos(x + 10, y + 15)  # Center text
-        self.scene.addItem(label)
+        # Position text inside rectangle
+        label.setParentItem(rect)
+        label.setPos(pos.x- width/2+padding, pos.y- height/2+padding)  # Position inside rectangle
 
-        self.nodes.append(rect)  # Store node
         return rect
 
-    def add_connection(self, node1, node2):
-        """ Connect two nodes with a line """
-
+    def addConnection(self, node1, node2):
         # Get center positions of nodes
         center1 = node1.sceneBoundingRect().center()
         center2 = node2.sceneBoundingRect().center()
@@ -50,26 +70,4 @@ class FlowchartView(QGraphicsView):
         line.setPen(QPen(Qt.black, 2))
         line.setZValue(0)  # Ensure lines are drawn below rectangles
         self.scene.addItem(line)
-
         self.lines.append(line)  # Store line
-
-# Create Application
-app = QApplication(sys.argv)
-view = FlowchartView()
-view.setWindowTitle("PyQt5 Flowchart Generator")
-view.resize(800, 600)
-view.show()
-
-# Example Flowchart Nodes (Added First)
-nodeA = view.add_node(300, 100, "Start")
-nodeB = view.add_node(200, 250, "Process 1")
-nodeC = view.add_node(400, 250, "Process 2")
-nodeD = view.add_node(300, 400, "End")
-
-# Connect Nodes (Added After Nodes)
-view.add_connection(nodeA, nodeB)
-view.add_connection(nodeA, nodeC)
-view.add_connection(nodeB, nodeD)
-view.add_connection(nodeC, nodeD)
-
-sys.exit(app.exec_())

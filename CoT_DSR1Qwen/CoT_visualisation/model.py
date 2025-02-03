@@ -4,10 +4,13 @@ import torch
 
 # Sampling parameters class for LanguageModel
 class SamplingParameters:
-    def __init__(self, max_length=50, min_length=0, temperature=0.9, top_k=50, top_p=1.0, num_return_sequences=1, repetition_penalty=1.0, no_repeat_ngram_size=0, do_sample=True, early_stopping=False, num_beams=1, best_of=1, pad_token_id=None, eos_token_id=None):
-        # The maximum length of the generated sequence.
+    def __init__(self, max_new_tokens=50, max_length=512, min_length=0, temperature=0.9, top_k=50, top_p=1.0, num_return_sequences=1, repetition_penalty=1.0, no_repeat_ngram_size=0, do_sample=True, early_stopping=False, num_beams=1, best_of=1, pad_token_id=None, eos_token_id=None):
+        # The maximum length of the tokenized sequence.    
         self.max_length = max_length
 
+        # The maximum length of the generated sequence.
+        self.max_new_tokens = max_new_tokens
+        
         # The minimum length of the generated sequence.
         self.min_length = min_length
         
@@ -47,50 +50,6 @@ class SamplingParameters:
         # The token ID representing the end of a sequence.
         self.eos_token_id = eos_token_id
         
-class SamplingParameters:
-    def __init__(self, max_length=50, min_length=0, temperature=1.0, top_k=50, top_p=1.0, num_return_sequences=1, repetition_penalty=1.0, no_repeat_ngram_size=0, do_sample=True, early_stopping=False, num_beams=1, best_of=1, pad_token_id=None, eos_token_id=None):
-        # The maximum length of the generated sequence.
-        self.max_length = max_length
-        
-        # The minimum length of the generated sequence.
-        self.min_length = min_length
-        
-        # Controls the randomness of predictions by scaling the logits before applying softmax.
-        self.temperature = temperature
-        
-        # Limits the sampling pool to the top-k most probable tokens.
-        self.top_k = top_k
-        
-        # Filters the sampling pool to include only tokens whose cumulative probability is <= top_p.
-        self.top_p = top_p
-        
-        # The number of output sequences to generate.
-        self.num_return_sequences = num_return_sequences
-        
-        # Penalizes repeated tokens to reduce repetitiveness in the output.
-        self.repetition_penalty = repetition_penalty
-        
-        # Ensures no n-gram of this size is repeated in the generated sequence.
-        self.no_repeat_ngram_size = no_repeat_ngram_size
-        
-        # If True, sampling is used for text generation; if False, greedy decoding is used.
-        self.do_sample = do_sample
-        
-        # If True, stops generation once an EOS token is generated for all beams.
-        self.early_stopping = early_stopping
-        
-        # The number of beams for beam search; higher values improve quality but increase computation.
-        self.num_beams = num_beams
-        
-        # The number of best sequences returned when using beam search.
-        self.best_of = best_of
-        
-        # The token ID used for padding shorter sequences.
-        self.pad_token_id = pad_token_id
-        
-        # The token ID representing the end of a sequence.
-        self.eos_token_id = eos_token_id
-
 class LanguageModel:
     def __init__(self, model_name="gpt2", device=None):
         # The name of the pretrained model to be used (e.g., GPT-2).
@@ -129,7 +88,7 @@ class LanguageModel:
         outputs = self.model.generate(
             inputs.input_ids,
             attention_mask=attention_mask,
-            max_length=samplingParams.max_length,
+            max_new_tokens=samplingParams.max_new_tokens,
             min_length=samplingParams.min_length,
             temperature=samplingParams.temperature,
             top_k=samplingParams.top_k,
