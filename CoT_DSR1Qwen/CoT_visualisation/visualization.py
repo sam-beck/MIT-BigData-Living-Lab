@@ -3,11 +3,13 @@ from PyQt5.QtGui import QPen, QPainter, QFontMetrics, QFont
 from PyQt5.QtCore import Qt
 import sys
 
+# Coordinate system data class
 class vector2D:
     def __init__(self,x,y):
         self.x = x
         self.y = y
 
+# Generates visual window to display flow charts
 class FlowchartView(QGraphicsView):
     def __init__(self):
         super().__init__()
@@ -22,7 +24,8 @@ class FlowchartView(QGraphicsView):
         self.windowHeight = self.size().height()
 
         self.setDragMode(QGraphicsView.ScrollHandDrag)  # Enable panning
-        
+        self.scale(0.8, 0.8)  # Initial zoom
+
         self.nodes = []  # Store nodes for correct ordering
         self.lines = []  # Store lines
 
@@ -30,8 +33,8 @@ class FlowchartView(QGraphicsView):
         self.windowWidth = self.size().width()
         self.windowHeight = self.size().height()
         return vector2D((x + 1) * self.windowWidth/2, (y + 1) * self.windowHeight/2)
-
-    def addNode(self, pos, text, width=120, padding=10, fontSize=9):
+        
+    def addNode(self, pos, text, width=120, padding=8, fontSize=8):
         font = QFont("Arial", fontSize)
 
         # Create a QGraphicsTextItem and set its width for proper wrapping

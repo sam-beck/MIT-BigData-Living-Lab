@@ -1,12 +1,51 @@
 import model
 import visualization as canvas
 import re, sys
+import math
 
+'''
+basic approach:
+1) use num_return_sequences to generate multiple samples at a certain level.
+2) generate using llm.generate().
+3) pick a sample and add to end of the prompt.
+4) repeat 2 and 3 until convergence or max generations completed.
+'''
+
+# Load model
 model_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
-llm = model.LanguageModel(model_name=model_name)
 
-samplingParameters = model.SamplingParameters(top_p=0.15,temperature=0.1,top_k=1,best_of=1,num_beams=1,max_new_tokens=5)
-results = llm.generate("If a train travels at 60 mph for 2.5 hours, how far does it travel?",samplingParameters)
+input_text = "If a train travels at 60 mph for 2.5 hours, how far does it travel?"
+nodes = 3
+length = 2
+
+llm = model.LanguageModel(model_name=model_name)
+samplingParameters = model.SamplingParameters(temperature=0.8,top_p=0.75,max_new_tokens=30,num_return_sequences=nodes)
+
+# Basic form to display the CoT data to a tree of nodes in flow chart form. Also outputs the average confidence level for each sequence 
+def createNodes(x,y,arr,width=100,shiftAmt=500,dropAmt=200,shiftReduction=2.5,previousNode=None):
+    info = ""
+    if "confidence" in arr[0].keys():
+        # Rounds to 2 DP
+        info = ("\n Confidence: " + str(round(sum(arr[0]["confidence"])/len(arr[0]["confidence"]),2)))
+    # Add current node to tree
+    currentNode = view.addNode(canvas.vector2D(x,y),arr[0]["output"] + info,width)
+    # Add connections to tree
+    if previousNode is not None:
+        view.addConnection(previousNode,currentNode)
+    # Shift amount, depends on #nodes
+    if (len(arr)-1) % 2 == 1:
+        shift = -math.floor((len(arr)-1)/2) * shiftAmt
+    else:
+        shift = -(len(arr)-1)/2 * (shiftAmt/2)
+    # Recursive visual node generation
+    for i in range(1,len(arr)):
+        createNodes(x+shift,y+dropAmt,arr[i],width,shiftAmt/shiftReduction,dropAmt,shiftReduction,currentNode)
+        shift += shiftAmt
+
+# Example usage
+
+output = llm.CoTTreeStrings(samplingParameters,{"output":input_text},length)
+print(output)
 
 # Create Application
 app = canvas.QApplication(sys.argv)
@@ -14,21 +53,6 @@ view = canvas.FlowchartView()
 view.setWindowTitle("CoT Visualization")
 view.show()
 
-#sentences = re.split(r'(?<=[.!?]) +', results)
-print(results)
-#previousNode = False
-#for i in len(sentences):
-#    node = view.addNode(view.convertToScreenSpace(0,i*100),sentences[i])
-
-# Example Flowchart Nodes (Added First)
-#nodeA = view.addNode(view.convertToScreenSpace(0, 0), "This is a start node with a long description that needs wrapping.")
-#nodeB = view.addNode(200, 250, "Process 1")
-#nodeC = view.addNode(400, 250, "Process 2")
-#nodeD = view.addNode(300, 400, "End")
-# Connect Nodes (Added After Nodes)
-#view.addConnection(nodeA, nodeB)
-#view.addConnection(nodeA, nodeC)
-#view.addConnection(nodeB, nodeD)
-#view.addConnection(nodeC, nodeD)
+createNodes(300,-50,output)
 
 sys.exit(app.exec_())
