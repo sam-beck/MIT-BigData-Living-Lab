@@ -15,20 +15,26 @@ basic approach:
 model_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
 
 input_text = "If a train travels at 60 mph for 2.5 hours, how far does it travel?"
-nodes = 3
-length = 2
+nodes = 2
+length = 3
 
 llm = model.LanguageModel(model_name=model_name)
-samplingParameters = model.SamplingParameters(temperature=0.8,top_p=0.75,max_new_tokens=30,num_return_sequences=nodes)
+samplingParameters = model.SamplingParameters(temperature=0.8,top_p=0.75,max_new_tokens=10,num_return_sequences=nodes)
 
-# Basic form to display the CoT data to a tree of nodes in flow chart form. Also outputs the average confidence level for each sequence 
+# Basic form to display the CoT data to a tree of nodes (with decoded / stringified node outputs) in flow chart form. Also outputs the average confidence level for each sequence 
 def createNodes(x,y,arr,width=100,shiftAmt=500,dropAmt=200,shiftReduction=2.5,previousNode=None):
-    info = ""
-    if "confidence" in arr[0].keys():
-        # Rounds to 2 DP
-        info = ("\n Confidence: " + str(round(sum(arr[0]["confidence"])/len(arr[0]["confidence"]),2)))
-    # Add current node to tree
-    currentNode = view.addNode(canvas.vector2D(x,y),arr[0]["output"] + info,width)
+    if not isinstance(arr[0],str):
+        if "confidence" in arr[0].keys():
+            # Rounds to 2 DP
+            info = ("\n Confidence: " + str(round(sum(arr[0]["confidence"])/len(arr[0]["confidence"]),2)))
+            # Add current node to tree
+            currentNode = view.addNode(canvas.vector2D(x,y),arr[0]["output"] + info,width)
+        else:
+            # Add current node to tree
+            currentNode = view.addNode(canvas.vector2D(x,y),arr[0]["output"],width)
+    else:
+        # Add current node to tree
+        currentNode = view.addNode(canvas.vector2D(x,y),arr[0],width)
     # Add connections to tree
     if previousNode is not None:
         view.addConnection(previousNode,currentNode)
@@ -43,8 +49,7 @@ def createNodes(x,y,arr,width=100,shiftAmt=500,dropAmt=200,shiftReduction=2.5,pr
         shift += shiftAmt
 
 # Example usage
-
-output = llm.CoTTreeStrings(samplingParameters,{"output":input_text},length)
+output = llm.CoTTreeStrings(samplingParameters,input_text,length)
 print(output)
 
 # Create Application

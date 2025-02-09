@@ -51,7 +51,80 @@ class LanguageModel:
         
         # Load the pretrained language model.
         self.model = AutoModelForCausalLM.from_pretrained(self.model_name, torch_dtype=torch.float16, device_map="auto")
+
+    # Decodes output tokens to string
+    def decode(self,tokens):
+        return self.tokenizer.decode(tokens,skip_special_tokens=True)
+
+    def generateWithTokens(self, tokens, samplingParams: SamplingParameters, return_probabilites=False, attention_mask=None):            
+        # Generate responses using the model with the provided sampling parameters.
+        output = self.model.generate(
+            tokens,
+            attention_mask=attention_mask,
+            max_new_tokens=samplingParams.max_new_tokens,
+            min_length=samplingParams.min_length,
+            temperature=samplingParams.temperature,
+            top_k=samplingParams.top_k,
+            top_p=samplingParams.top_p,
+            num_return_sequences=samplingParams.num_return_sequences,
+            repetition_penalty=samplingParams.repetition_penalty,
+            do_sample=samplingParams.do_sample,
+            early_stopping=samplingParams.early_stopping if samplingParams.num_beams > 1 else False,
+            num_beams=samplingParams.num_beams,
+            pad_token_id=samplingParams.pad_token_id or self.tokenizer.eos_token_id,
+            eos_token_id=samplingParams.eos_token_id or self.tokenizer.eos_token_id,
+            # Forces scores / logits to be output
+            output_scores=True,
+            return_dict_in_generate=True
+        )
         
+        # Get transition / per-token scores
+        transition_scores = self.model.compute_transition_scores(output.sequences, output.scores, normalize_logits=True)
+        input_size = tokens.shape[1]
+        # Get tokens without input prompt
+        gen_tokens = output.sequences[:,input_size:]
+        logits = []
+        # Match per-token logits / scores with each respective output token 
+        for i in range(samplingParams.num_return_sequences):
+            data = zip(gen_tokens[i], transition_scores[i])
+            logits.append([])
+            # Add to logits, convert to probabilities if specified
+            for token, score in data:
+                logits[i].append(np.exp(score.cpu().numpy()).item() if return_probabilites else score.cpu().numpy().item())
+        # Return formatted output tokens
+        return [{"output": gen_tokens[i], "confidence": logits[i] } for i in range(samplingParams.num_return_sequences)]    
+    
+
+    # Creates a tree consisting of equal chain of thought lengths and nodes, with the output represented as tokens
+    def CoTTreeTokens(self, samplingParams : SamplingParameters, prompt, length, array=None, chain_text="", attention_mask=None):
+        # End case of recursive function
+        if length < 1:
+            return
+
+        # Accounts for initial prompt
+        if array == None:
+            array = [prompt]
+            tokens = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True, max_length=samplingParams.max_length).to(self.device)
+            chain_text = tokens.input_ids
+            attention_mask = tokens.attention_mask
+            next_text = chain_text
+        else:
+
+            next_text = torch.cat((chain_text, prompt.unsqueeze(0)), dim=1)    
+
+        # Generate each node that contains a sequence, defined in samplingParams by the num_return_sequences
+        output = self.generateWithTokens(next_text,samplingParams,True,attention_mask)
+        
+        # Loop through each node
+        for sequence in output:
+            # Add sequence to return data
+            array.append([sequence])
+            # Recursive method, constructs the CoT chain data coming off each node
+            # TODO: could add in modifications to the number of nodes as depth of tree increases based on set number or confidence levels...
+            self.CoTTreeTokens(samplingParams, sequence["output"], length - 1, array[len(array)-1], next_text)
+        # Return resulting array, only called once after all recursive functions have returned
+        return array
+
     def generate(self, prompt, samplingParams: SamplingParameters, return_probabilites=False, return_tokens=False, custom_attention_mask=None):
         # Tokenize the input prompt, ensuring proper padding and truncation.
         inputs = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True, max_length=samplingParams.max_length).to(self.device)
@@ -95,20 +168,21 @@ class LanguageModel:
                 logits[i].append(np.exp(score.cpu().numpy()).item() if return_probabilites else score.cpu().numpy().item())
         # Return formatted output tokens (faster) or decoded output 
         if return_tokens:
-            return [{"output": gen_tokens[i], ("confidence"): logits[i] } for i in range(samplingParams.num_return_sequences)]    
+            return [{"output": gen_tokens[i], "confidence": logits[i] } for i in range(samplingParams.num_return_sequences)]    
         return [{"output": self.tokenizer.decode(gen_tokens[i],skip_special_tokens=True), ("confidence"): logits[i] } for i in range(samplingParams.num_return_sequences)]
     
     # Creates a tree consisting of equal chain of thought lengths and nodes, with the output represented as a string (tokenized is faster, TODO)
     def CoTTreeStrings(self, samplingParams : SamplingParameters, prompt, length, array=None, chain_text=""):
-        # Accounts for initial prompt
-        if array == None:
-            array = [prompt]
         # End case of recursive function
         if length < 1:
             return
-    
+        
+        # Accounts for initial prompt
+        if array == None:
+            array = [prompt]
+            
         # Extends prompt 
-        next_text = chain_text+prompt["output"]
+        next_text = chain_text+prompt
         # Generate each node that contains a sequence, defined in samplingParams by the num_return_sequences
         output = self.generate(next_text,samplingParams,True)
         
@@ -118,6 +192,6 @@ class LanguageModel:
             array.append([sequence])
             # Recursive method, constructs the CoT chain data coming off each node
             # TODO: could add in modifications to the number of nodes as depth of tree increases based on set number or confidence levels...
-            self.CoTTreeStrings(samplingParams, sequence, length - 1, array[len(array)-1], next_text)
+            self.CoTTreeStrings(samplingParams, sequence["output"], length - 1, array[len(array)-1], next_text)
         # Return resulting array, only called once after all recursive functions have returned
         return array
