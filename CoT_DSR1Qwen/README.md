@@ -8,6 +8,6 @@ After creating an inference endpoint, further developments were made into multi-
 ## Background
 
 ## Outcome
-The [CoT_DSR1Qwen](./CoTDSR1Qwen/) sub-folder
+The [CoT_DSR1Qwen](./CoTDSR1Qwen/) sub-folder contains the first CoT tree sampling technique, which utilises temperature to generate a number of outputs from the model and create a tree-like thought pattern.
 
 ### Next steps

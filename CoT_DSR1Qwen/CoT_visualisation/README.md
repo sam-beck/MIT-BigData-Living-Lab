@@ -10,6 +10,9 @@ Where each node is defined by the following structure:
 {"output":"","confidence":[]}
 Where confidence refers to an array of all the generated tokens' scores / probabilities, seperated by sequence.
 
+An example of the graphics output is shown below using the input prompt: "If a train travels at 60 mph for 2.5 hours, how far does it travel?":
+![CoT tree output](./images/CoT_Tree_Diagram.png "CoT tree output graphics diagram")
+
 ## [model](./model.py)
 Defines the sampling parameters model and core function for generating sequences for chain of thought inference.
 
