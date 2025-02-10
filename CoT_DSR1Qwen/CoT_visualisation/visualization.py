@@ -1,76 +1,146 @@
-from PyQt5.QtWidgets import QApplication, QGraphicsScene, QGraphicsView, QGraphicsRectItem, QGraphicsTextItem, QGraphicsLineItem
-from PyQt5.QtGui import QPen, QPainter, QFontMetrics, QFont
+from PyQt5.QtWidgets import QApplication, QDesktopWidget, QGraphicsScene, QGraphicsItem, QGraphicsView, QGraphicsRectItem, QGraphicsTextItem, QGraphicsLineItem
+from PyQt5.QtGui import QPen, QPainter, QFont
 from PyQt5.QtCore import Qt
 import sys
 
-# Coordinate system data class
-class vector2D:
-    def __init__(self,x,y):
+class ResizableTextNode(QGraphicsRectItem):
+    def __init__(self, x, y, text, width=120, height=50, padding=8, fontSize=10):
+        super().__init__(x, y, width, height)
         self.x = x
         self.y = y
+        
+        # To draw node text first before lines
+        self.setZValue(1)
+
+        # Rect text node graphics
+        self.setBrush(Qt.white)
+        self.setPen(QPen(Qt.black, 2))
+        self.setFlags(QGraphicsRectItem.ItemIsMovable | QGraphicsRectItem.ItemIsSelectable | QGraphicsRectItem.ItemSendsGeometryChanges)
+        self.padding = padding
+        self.textItem = QGraphicsTextItem(text, self)
+        self.textItem.setFont(QFont("Arial", fontSize))
+        self.connections = []
+
+        # Drag / move variable initalisation
+        self.drag = False
+        self.previousPositionX = 0
+        self.previousPositionY = 0
+        self.minWidth = 70
+
+        # Set initial wrapping width
+        self.textItem.setTextWidth(width - 2 * padding)
+        self.textItem.setDefaultTextColor(Qt.black)
+        self.updateTextPos()
+
+    # Updates text to fit in node bounding rect
+    def updateTextPos(self):
+        height = self.textItem.boundingRect().height() + 2 * self.padding
+        self.setRect(self.x, self.y, self.rect().width(), height)
+        self.textItem.setTextWidth(self.rect().width() - 2 * self.padding)
+        self.textItem.setPos(self.x + self.padding/2, self.y + self.padding/2)
+
+    # Allows for dragging of nodes and resizing by right clicking and dragging the bottom right corner
+    def mousePressEvent(self, event):
+        self.drag = False
+        rect = self.rect()
+        pos = event.pos()
+        # Drag resize detection
+        resizeMargin = min(rect.width(),rect.height())/4
+        if event.button() == Qt.RightButton:
+            if pos.x() - self.x > resizeMargin and pos.y() - self.y > resizeMargin:
+                self.drag = True
+        else:
+            super().mousePressEvent(event)
+        self.previousPositionX = pos.x()
+        self.previousPositionY = pos.y()
+
+    # Handles node dragging and resizing
+    def mouseMoveEvent(self, event):
+        pos = event.pos()
+        if self.drag:
+            rect = self.rect()
+            diff = pos.x()-self.previousPositionX
+            # Update rect with new size
+            self.setRect(self.x, self.y, max(self.minWidth, rect.width()+diff), rect.height())
+            self.updateTextPos()
+            self.updateConnections()
+        else:
+            super().mouseMoveEvent(event)
+        self.previousPositionX = pos.x()
+        self.previousPositionY = pos.y()    
+
+    # Handle position changing for children connection lines
+    def itemChange(self, change, value):
+        if change == QGraphicsItem.ItemPositionChange:
+            self.updateConnections()
+        return super().itemChange(change, value)
+
+    # Update connected node lines
+    def updateConnections(self):
+        for connection in self.connections:
+            connection.updatePosition()
+
+class ConnectionLine(QGraphicsLineItem):
+
+    def __init__(self, node1, node2):
+        super().__init__()
+        # Set up line graphics
+        self.setPen(QPen(Qt.black, 2))
+        # Respective connected nodes
+        self.node1 = node1
+        self.node2 = node2
+        self.translation = [0,0]
+        self.setZValue(0)
+        self.node1.connections.append(self)
+        self.node2.connections.append(self)
+        self.updatePosition()
+
+    # Updates the position of the node line connector when text rect is moved
+    def updatePosition(self):
+        center1 = self.node1.sceneBoundingRect().center()
+        center2 = self.node2.sceneBoundingRect().center()    
+        self.setLine(center1.x(), center1.y(), center2.x(), center2.y())
 
 # Generates visual window to display flow charts
 class FlowchartView(QGraphicsView):
     def __init__(self):
         super().__init__()
 
+        # Create scene
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
         self.setRenderHint(QPainter.Antialiasing)  # Enable smooth rendering
+        
+        # Ensure scroll bars are visible
+        self.setVerticalScrollBarPolicy( Qt.ScrollBarAlwaysOn )
+        self.setHorizontalScrollBarPolicy( Qt.ScrollBarAlwaysOn )
 
-        self.setSceneRect(0,0,600,400)  # Set canvas size
+        # Set up viewport (maximised)
+        viewport = QDesktopWidget().screenGeometry()
+        self.setSceneRect(0, 0, viewport.width(), viewport.height())
         self.showMaximized()
         self.windowWidth = self.size().width()
         self.windowHeight = self.size().height()
 
-        self.setDragMode(QGraphicsView.ScrollHandDrag)  # Enable panning
-        self.scale(0.8, 0.8)  # Initial zoom
+        # Scrolling parameters
+        self.maxScroll = 0.25
+        self.scrollDampening = 40
 
         self.nodes = []  # Store nodes for correct ordering
         self.lines = []  # Store lines
 
-    def convertToScreenSpace(self, x, y):
-        self.windowWidth = self.size().width()
-        self.windowHeight = self.size().height()
-        return vector2D((x + 1) * self.windowWidth/2, (y + 1) * self.windowHeight/2)
-        
-    def addNode(self, pos, text, width=120, padding=8, fontSize=8):
-        font = QFont("Arial", fontSize)
+    # Zooming with scroll wheel
+    def wheelEvent(self, event):
+        delta = 1 - min(-event.angleDelta().y()/self.scrollDampening,self.maxScroll) if event.angleDelta().y() < 0 else 1 + min(event.angleDelta().y()/self.scrollDampening,self.maxScroll)
+        self.scale(delta,delta)
+    
+    # Add node to view
+    def addNode(self, x, y, text, width=120, padding=8, fontSize=13):
+        node = ResizableTextNode(x, y, text, width=width, padding=padding, fontSize=fontSize)
+        self.scene.addItem(node)
+        return node
 
-        # Create a QGraphicsTextItem and set its width for proper wrapping
-        label = QGraphicsTextItem(text)
-        label.setFont(font)
-        label.setTextWidth(width - 2 * padding)  # Ensure wrapping
-        label.setDefaultTextColor(Qt.black)
-
-        # Use boundingRect() to get the real wrapped text height
-        text_rect = label.boundingRect()
-        height = text_rect.height() + 2 * padding
-
-        # Create rectangle that perfectly fits the text
-        rect = QGraphicsRectItem(pos.x-width/2, pos.y-height/2, width, height)
-        rect.setBrush(Qt.white)
-        rect.setPen(QPen(Qt.black, 2))
-        rect.setZValue(1)  # Ensure rectangles are above lines
-        self.scene.addItem(rect)
-
-        # Position text inside rectangle
-        label.setParentItem(rect)
-        label.setPos(pos.x- width/2+padding, pos.y- height/2+padding)  # Position inside rectangle
-
-        return rect
-
+    # Add connection line to view
     def addConnection(self, node1, node2):
-        # Get center positions of nodes
-        center1 = node1.sceneBoundingRect().center()
-        center2 = node2.sceneBoundingRect().center()
-
-        x1, y1 = center1.x(), center1.y()
-        x2, y2 = center2.x(), center2.y()
-
-        # Draw line between nodes
-        line = QGraphicsLineItem(x1, y1, x2, y2)
-        line.setPen(QPen(Qt.black, 2))
-        line.setZValue(0)  # Ensure lines are drawn below rectangles
+        line = ConnectionLine(node1, node2)
         self.scene.addItem(line)
-        self.lines.append(line)  # Store line
