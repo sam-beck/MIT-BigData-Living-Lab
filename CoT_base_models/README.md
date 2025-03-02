@@ -1,4 +1,4 @@
-# CoT_model_basic
+# CoT_base_models
 - Commenced: 26/1/25
 - Concluded: 30/1/2025
 
